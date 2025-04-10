@@ -1,0 +1,73 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © jagadeeshgowda6666
+
+//@version=6
+indicator("Operator 20", overlay = true)
+
+// Variables
+var float high_line = na
+var float low_line = na
+var float total_move = 0.0
+var int green_candle_count = 0
+var float first_green_close = na
+var float first_green_low = na
+var int first_green_bar_index = na
+var int last_green_bar_index = na
+var int line_extension_bars = 50
+var int trade_count = 0
+
+// Temporary storage for single green candle logic
+var float potential_single_move = na
+var float potential_single_high = na
+
+// Check if current candle is green
+is_green_candle = close >= open
+
+// === Logic to handle green candles ===
+if is_green_candle
+    if green_candle_count == 0
+        // First green candle in potential sequence or standalone
+        first_green_close := low
+        first_green_low := low
+        first_green_bar_index := bar_index
+        green_candle_count := 1
+
+        // Save move and high for potential single candle case
+        potential_single_move := (high - low) / low * 100
+        potential_single_high := high
+    else
+        // Continuing a green candle sequence
+        green_candle_count += 1
+        total_move := (high - first_green_close) / first_green_close * 100
+        high_line := high
+
+// === Logic when a red candle appears ===
+if not is_green_candle
+    // --- Case 1: Single green candle ≥ 20% ---
+    if green_candle_count == 1 and potential_single_move >= 20
+        trade_count += 1
+
+        // Draw lines for single green candle
+        line.new(x1=first_green_bar_index, y1=first_green_low, x2=bar_index + line_extension_bars, y2=first_green_low, color=color.green, width=4)
+        line.new(x1=first_green_bar_index, y1=potential_single_high, x2=bar_index + line_extension_bars, y2=potential_single_high, color=color.red, width=4)
+
+        label.new(x=bar_index + line_extension_bars, y=first_green_low, text="Entry " + str.tostring(trade_count), style=label.style_label_right, color=color.white, textcolor=color.green)
+        label.new(x=bar_index + line_extension_bars, y=potential_single_high, text="Target " + str.tostring(trade_count), style=label.style_label_right, color=color.white, textcolor=color.red)
+
+    // --- Case 2: Sequence of green candles with total move ≥ 20% ---
+    else if green_candle_count > 1 and total_move >= 20
+        trade_count += 1
+        low_line := first_green_low
+
+        // Draw lines for green candle sequence
+        line.new(x1=first_green_bar_index, y1=low_line, x2=bar_index + line_extension_bars, y2=low_line, color=color.green, width=4, style=line.style_solid)
+        line.new(x1=first_green_bar_index, y1=high_line, x2=bar_index + line_extension_bars, y2=high_line, color=color.red, width=4, style=line.style_solid)
+
+        label.new(x=bar_index + line_extension_bars, y=low_line, text="Entry " + str.tostring(trade_count), style=label.style_label_right, color=color.white, textcolor=color.green)
+        label.new(x=bar_index + line_extension_bars, y=high_line, text="Target " + str.tostring(trade_count), style=label.style_label_right, color=color.white, textcolor=color.red)
+
+    // Reset variables after red candle
+    green_candle_count := 0
+    total_move := 0
+    potential_single_move := na
+    potential_single_high := na
